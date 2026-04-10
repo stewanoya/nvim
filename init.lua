@@ -257,6 +257,43 @@ rtp:prepend(lazypath)
 require('lazy').setup({
   -- NOTE: Plugins can be added via a link or github org/name. To run setup automatically, use `opts = {}`
   { 'NMAC427/guess-indent.nvim', opts = {} },
+  {
+    'mrcjkb/rustaceanvim',
+    -- To avoid being surprised by breaking changes,
+    -- I recommend you set a version range
+    version = '^9',
+    -- This plugin implements proper lazy-loading (see :h lua-plugin-lazy).
+    -- No need for lazy.nvim to lazy-load it.
+    lazy = false,
+  },
+  -- Neo-tree is a Neovim plugin to browse the file system
+  -- https://github.com/nvim-neo-tree/neo-tree.nvim
+  ---@module 'lazy'
+  ---@type LazySpec
+    {
+    'nvim-neo-tree/neo-tree.nvim',
+    version = '*',
+    dependencies = {
+      'nvim-lua/plenary.nvim',
+      'nvim-tree/nvim-web-devicons', -- not strictly required, but recommended
+      'MunifTanjim/nui.nvim',
+    },
+    lazy = false,
+    keys = {
+      { '\\', ':Neotree reveal<CR>', desc = 'NeoTree reveal', silent = true },
+    },
+    ---@module 'neo-tree'
+    ---@type neotree.Config
+    opts = {
+      filesystem = {
+        window = {
+          mappings = {
+            ['\\'] = 'close_window',
+          },
+        },
+      },
+    },
+  },
 
   -- Alternatively, use `config = function() ... end` for full control over the configuration.
   -- If you prefer to call `setup` explicitly, use:
