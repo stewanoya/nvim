@@ -148,7 +148,7 @@ vim.o.splitbelow = true
 --   See `:help lua-options`
 --   and `:help lua-guide-options`
 vim.o.list = true
-vim.opt.listchars = { tab = '» ', trail = '·', nbsp = '␣' }
+vim.opt.listchars = { tab = '  ', trail = '·', nbsp = '␣' }
 
 -- Preview substitutions live, as you type!
 vim.o.inccommand = 'split'
@@ -163,6 +163,42 @@ vim.o.scrolloff = 10
 -- instead raise a dialog asking if you wish to save the current file(s)
 -- See `:help 'confirm'`
 vim.o.confirm = true
+
+vim.o.tabstop = 4
+vim.o.shiftwidth = 4
+vim.o.softtabstop = 4
+vim.o.expandtab = true
+
+-- Notify Roslyn when a new .cs file is opened (handles both :e and neo-tree file creation)
+-- Uses empty buffer as "new file" heuristic since neo-tree creates files before Neovim opens them
+local notified_cs_files = {}
+vim.api.nvim_create_autocmd({ 'BufReadPost', 'BufNewFile' }, {
+  pattern = '*.cs',
+  callback = function(args)
+    local path = vim.api.nvim_buf_get_name(args.buf)
+    if path == '' or notified_cs_files[path] then return end
+    local lines = vim.api.nvim_buf_get_lines(args.buf, 0, -1, false)
+    if #lines > 1 or (#lines == 1 and lines[1] ~= '') then return end
+    notified_cs_files[path] = true
+    vim.schedule(function()
+      local uri = vim.uri_from_bufnr(args.buf)
+      for _, client in ipairs(vim.lsp.get_clients({ bufnr = args.buf, name = 'roslyn' })) do
+        client.notify('workspace/didCreateFiles', { files = { { uri = uri } } })
+      end
+    end)
+  end,
+})
+
+-- Use cindent for C# instead of treesitter's indentexpr (incomplete C# indent queries)
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = 'cs',
+  callback = function(args)
+    vim.schedule(function()
+      vim.bo[args.buf].indentexpr = ''
+      vim.bo[args.buf].cindent = true
+    end)
+  end,
+})
 
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
@@ -207,6 +243,12 @@ vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' }
 --  Use CTRL+<hjkl> to switch between windows
 --
 --  See `:help wincmd` for a list of all window commands
+-- Move lines up/down (like Alt+Up/Down in VS Code)
+vim.keymap.set('n', '<A-Down>', '<cmd>move .+1<CR>==', { desc = 'Move line down' })
+vim.keymap.set('n', '<A-Up>', '<cmd>move .-2<CR>==', { desc = 'Move line up' })
+vim.keymap.set('v', '<A-Down>', ":move '>+1<CR>gv=gv", { desc = 'Move selection down' })
+vim.keymap.set('v', '<A-Up>', ":move '<-2<CR>gv=gv", { desc = 'Move selection up' })
+
 vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to the left window' })
 vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' })
 vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
@@ -298,7 +340,9 @@ require('lazy').setup({
   {
     "seblyng/roslyn.nvim",
     ft = "cs",
-    opts = {},
+    opts = {
+      broad_search = true,
+    },
   },
 
   -- Alternatively, use `config = function() ... end` for full control over the configuration.
@@ -944,9 +988,11 @@ require('lazy').setup({
       end
 
       local available_parsers = require('nvim-treesitter').get_available()
-      vim.api.nvim_create_autocmd('FileType', {
+      vim.api.nvim_create_autocmd({ 'FileType', 'BufReadPost' }, {
         callback = function(args)
-          local buf, filetype = args.buf, args.match
+          local buf = args.buf
+          local filetype = vim.bo[buf].filetype
+          if filetype == '' then return end
 
           local language = vim.treesitter.language.get_lang(filetype)
           if not language then return end
@@ -978,11 +1024,11 @@ require('lazy').setup({
   --  Uncomment any of the lines below to enable them (you will need to restart nvim).
   --
   -- require 'kickstart.plugins.debug',
-  -- require 'kickstart.plugins.indent_line',
+  require 'kickstart.plugins.indent_line',
   -- require 'kickstart.plugins.lint',
-  -- require 'kickstart.plugins.autopairs',
+  require 'kickstart.plugins.autopairs',
   -- require 'kickstart.plugins.neo-tree',
-  -- require 'kickstart.plugins.gitsigns', -- adds gitsigns recommended keymaps
+  require 'kickstart.plugins.gitsigns', -- adds gitsigns recommended keymaps
 
   -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
   --    This is the easiest way to modularize your config.

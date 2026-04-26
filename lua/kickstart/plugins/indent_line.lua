@@ -9,5 +9,10 @@ return {
   main = 'ibl',
   ---@module 'ibl'
   ---@type ibl.config
-  opts = {},
+  opts = {
+    indent = {
+      char = '│',
+      tab_char = '│',
+    },
+  },
 }
