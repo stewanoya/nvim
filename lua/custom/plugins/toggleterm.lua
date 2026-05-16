@@ -11,7 +11,7 @@ return {
     float_opts = {
       border = 'curved',
     },
-    shell = 'pwsh',
+    shell = vim.o.shell,
   },
   config = function(_, opts)
     require('toggleterm').setup(opts)
